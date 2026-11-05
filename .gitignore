@@ -19,3 +19,5 @@ out
 
 # Keep Magisk custom skills in repository
 !/.agents/skills/magisk-*/
+
+/ui
