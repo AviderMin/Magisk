@@ -2,64 +2,48 @@ package com.topjohnwu.magisk.ui
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.navigationevent.NavigationEventInfo
-import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
-import androidx.navigationevent.compose.NavigationBackHandler
-import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
-import androidx.navigationevent.compose.rememberNavigationEventState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.topjohnwu.magisk.R
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventDispatcherOwner
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.topjohnwu.magisk.arch.VMFactory
 import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.model.module.LocalModule
@@ -72,20 +56,34 @@ import com.topjohnwu.magisk.ui.module.ModuleScreen
 import com.topjohnwu.magisk.ui.module.ModuleViewModel
 import com.topjohnwu.magisk.ui.navigation.CollectNavEvents
 import com.topjohnwu.magisk.ui.navigation.LocalNavigator
+import com.topjohnwu.magisk.ui.navigation.Navigator
 import com.topjohnwu.magisk.ui.navigation.Route
 import com.topjohnwu.magisk.ui.settings.SettingsScreen
 import com.topjohnwu.magisk.ui.settings.SettingsViewModel
 import com.topjohnwu.magisk.ui.superuser.SuperuserScreen
 import com.topjohnwu.magisk.ui.superuser.SuperuserViewModel
+import io.github.neoruaa.glasmio.core.IosTypography
+import io.github.neoruaa.glasmio.glass.glassBackdropSource
+import io.github.neoruaa.glasmio.glass.render.backdrops.rememberLayerBackdrop
+import io.github.neoruaa.glasmio.glass.trackBackdropPosition
+import io.github.neoruaa.glasmio.icons.SfIcon
+import io.github.neoruaa.glasmio.icons.SfSymbol
+import io.github.neoruaa.glasmio.ui.GlasmioIconButton
+import io.github.neoruaa.glasmio.ui.GlasmioNavigationBar
+import io.github.neoruaa.glasmio.ui.GlasmioSidebar
+import io.github.neoruaa.glasmio.ui.GlasmioSidebarRow
+import io.github.neoruaa.glasmio.ui.GlasmioSidebarToolbar
+import io.github.neoruaa.glasmio.ui.GlasmioTabItem
+import io.github.neoruaa.glasmio.ui.NavigationBarSurfaceHeight
 import kotlinx.coroutines.launch
 import com.topjohnwu.magisk.core.R as CoreR
 
-enum class Tab(val titleRes: Int, val iconRes: Int) {
-    MODULES(CoreR.string.modules, R.drawable.ic_module),
-    SUPERUSER(CoreR.string.superuser, CoreR.drawable.ic_superuser),
-    HOME(CoreR.string.section_home, R.drawable.ic_home),
-    LOG(CoreR.string.logs, R.drawable.ic_bug),
-    SETTINGS(CoreR.string.settings, R.drawable.ic_settings);
+enum class Tab(val titleRes: Int, val symbol: SfSymbol) {
+    MODULES(CoreR.string.modules, SfSymbol.Layers),
+    SUPERUSER(CoreR.string.superuser, SfSymbol.PersonFilled),
+    HOME(CoreR.string.section_home, SfSymbol.HouseFilled),
+    LOG(CoreR.string.logs, SfSymbol.Clock),
+    SETTINGS(CoreR.string.settings, SfSymbol.Gearshape);
 }
 
 @Composable
@@ -110,7 +108,6 @@ fun MainScreen(
     val initialPage = visibleTabs.indexOf(Tab.entries[initialTab]).coerceAtLeast(0)
     val pagerState = rememberPagerState(initialPage = initialPage, pageCount = { visibleTabs.size })
 
-    // Show a tab requested while the app is already running, e.g. by the system settings
     val currentOnTabRequestHandled by rememberUpdatedState(onTabRequestHandled)
     LaunchedEffect(requestedTab) {
         if (requestedTab == null) return@LaunchedEffect
@@ -118,15 +115,12 @@ fun MainScreen(
         if (page >= 0) pagerState.scrollToPage(page)
         currentOnTabRequestHandled()
     }
-    val fabFocusRequester = remember { FocusRequester() }
-    val navModulesFocusRequester = remember { FocusRequester() }
-    val navSuperuserFocusRequester = remember { FocusRequester() }
-    val moduleContentFocusRequester = remember { FocusRequester() }
-    val superuserContentFocusRequester = remember { FocusRequester() }
+
     var moduleFabAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var superuserFabAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val isModulesTab = visibleTabs.getOrNull(pagerState.currentPage) == Tab.MODULES
-    val isSuperuserTab = visibleTabs.getOrNull(pagerState.currentPage) == Tab.SUPERUSER
+    val currentTab = visibleTabs.getOrNull(pagerState.currentPage)
+    val showFab = (currentTab == Tab.MODULES && moduleFabAction != null) ||
+        (currentTab == Tab.SUPERUSER && superuserFabAction != null)
 
     val homePageIndex = remember(visibleTabs) { visibleTabs.indexOf(Tab.HOME).coerceAtLeast(0) }
     val isNotAtHome = pagerState.currentPage != homePageIndex && navigator.current() == Route.Main
@@ -135,210 +129,259 @@ fun MainScreen(
         state = tabBackState,
         isBackEnabled = isNotAtHome,
         onBackCompleted = {
-            scope.launch {
-                pagerState.animateScrollToPage(homePageIndex)
-            }
+            scope.launch { pagerState.animateScrollToPage(homePageIndex) }
         }
     )
 
-    // The collapsed rail needs 520dp (44dp top space, 96dp FAB header, 5 items, 44dp bottom) to
-    // show every item. In shorter windows use the bar, like the library does below 480dp.
-    val systemBars = WindowInsets.systemBars
-    val railHeight = LocalWindowInfo.current.containerDpSize.height -
-        with(LocalDensity.current) { (systemBars.getTop(this) + systemBars.getBottom(this)).toDp() }
-    val navType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfo()).let {
-        if (it == NavigationSuiteType.WideNavigationRailCollapsed && railHeight < 520.dp) {
-            NavigationSuiteType.ShortNavigationBarMedium
-        } else it
-    }
-    val isBar = navType == NavigationSuiteType.ShortNavigationBarCompact ||
-        navType == NavigationSuiteType.ShortNavigationBarMedium
-    val showFab = (isModulesTab && moduleFabAction != null) || (isSuperuserTab && superuserFabAction != null)
-    val hasFabTab = Tab.MODULES in visibleTabs || Tab.SUPERUSER in visibleTabs
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isWide = maxWidth >= 840.dp
+        val pageBackdrop = rememberLayerBackdrop()
+        val navigationBarBottom =
+            WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
-    // The explicit focus wiring below assumes the FAB sits above a bottom bar, so only apply
-    // it in bar mode. With a rail, the default 2D focus search works as is.
-    NavigationSuiteScaffold(
-        modifier = modifier.fillMaxSize(),
-        navigationSuiteType = navType,
-        navigationItems = {
-            visibleTabs.forEachIndexed { index, tab ->
-                val isModulesItem = tab == Tab.MODULES
-                val isSuperuserItem = tab == Tab.SUPERUSER
-                NavigationSuiteItem(
-                    navigationSuiteType = navType,
-                    selected = pagerState.currentPage == index,
-                    onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+        if (isWide) {
+            Row(Modifier.fillMaxSize()) {
+                GlasmioSidebar(
                     modifier = Modifier
-                        .then(
-                            if (isModulesItem) Modifier.focusRequester(navModulesFocusRequester)
-                            else if (isSuperuserItem) Modifier.focusRequester(navSuperuserFocusRequester)
-                            else Modifier
-                        )
-                        .focusProperties {
-                            if (isBar && ((isModulesTab && isModulesItem) || (isSuperuserTab && isSuperuserItem))) {
-                                up = fabFocusRequester
-                            }
-                        },
-                    icon = {
-                        Icon(
-                            imageVector = ImageVector.vectorResource(tab.iconRes),
-                            // The label below already names the tab
-                            contentDescription = null,
-                        )
-                    },
-                    label = { Text(stringResource(tab.titleRes)) },
-                )
-            }
-        },
-        primaryActionContent = {
-            // In the rail header, keep the FAB slot even when the FAB is hidden so the rail
-            // items don't jump on tab switches, and center the FAB in the collapsed rail.
-            // Skip the slot if no tab has a FAB (no root).
-            // In bar mode, the scaffold places this slot at the end edge of the window without
-            // considering insets, so pad it to keep the FAB clear of side system bars and cutouts.
-            Box(
-                if (isBar) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
-                else if (!hasFabTab) Modifier
-                else Modifier.padding(start = 20.dp).heightIn(min = 56.dp)
-            ) {
-                AnimatedVisibility(
-                    visible = showFab,
-                    enter = scaleIn() + fadeIn(),
-                    exit = scaleOut() + fadeOut(),
+                        .width(300.dp)
+                        .fillMaxHeight(),
                 ) {
-                    FloatingActionButton(
-                        onClick = {
-                            if (isModulesTab) moduleFabAction?.invoke()
-                            else if (isSuperuserTab) superuserFabAction?.invoke()
-                        },
-                        // In rail mode this slot is also composed (unplaced) by the scaffold,
-                        // so don't attach the focus requester there.
-                        modifier = if (isBar) {
-                            Modifier
-                                .focusRequester(fabFocusRequester)
-                                .focusProperties {
-                                    up = if (isModulesTab) moduleContentFocusRequester else superuserContentFocusRequester
-                                    down = if (isModulesTab) navModulesFocusRequester else navSuperuserFocusRequester
-                                    right = FocusRequester.Cancel
-                                }
-                        } else Modifier,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        // M3: a FAB nested in the navigation rail has no elevation
-                        elevation = if (isBar) FloatingActionButtonDefaults.elevation()
-                            else FloatingActionButtonDefaults.bottomAppBarFabElevation(),
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .statusBarsPadding()
+                            .navigationBarsPadding()
+                            .padding(horizontal = 10.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(
-                                if (isModulesTab) CoreR.string.module_action_install_external
-                                else CoreR.string.superuser_grant
-                            ),
-                            modifier = Modifier.size(28.dp),
+                        GlasmioSidebarToolbar(
+                            leading = {
+                                Text(
+                                    text = "Magisk",
+                                    style = IosTypography.headline,
+                                    modifier = Modifier.padding(start = 12.dp),
+                                )
+                            },
+                        )
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(bottom = 10.dp),
+                        ) {
+                            items(visibleTabs, key = { it.name }) { tab ->
+                                GlasmioSidebarRow(
+                                    title = stringResource(tab.titleRes),
+                                    symbol = tab.symbol,
+                                    selected = tab == currentTab,
+                                    onClick = {
+                                        scope.launch { pagerState.animateScrollToPage(visibleTabs.indexOf(tab)) }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .glassBackdropSource(pageBackdrop)
+                        .trackBackdropPosition(pageBackdrop),
+                ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        beyondViewportPageCount = 0,
+                    ) { page ->
+                        MainPagerPage(
+                            page = page,
+                            visibleTabs = visibleTabs,
+                            pagerState = pagerState,
+                            navigator = navigator,
+                            superuserViewModel = superuserViewModel,
+                            onModuleFab = { moduleFabAction = it },
+                            onSuperuserFab = { superuserFabAction = it },
                         )
                     }
                 }
             }
-        },
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            beyondViewportPageCount = 0,
-            // With a rail, switch tabs only through the rail, not with trackpad swipes
-            userScrollEnabled = isBar,
-        ) { page ->
-            val isCurrentPage = pagerState.currentPage == page
-            val childOwner = rememberNavigationEventDispatcherOwner(enabled = isCurrentPage)
-            CompositionLocalProvider(
-                LocalNavigationEventDispatcherOwner provides childOwner,
-            ) {
-                val tab = visibleTabs[page]
-                Box(
+        } else {
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .focusProperties {
-                        onEnter = {
-                            if (!isCurrentPage) {
-                                cancelFocusChange()
-                            }
-                        }
-                        onExit = {
-                            // With a rail, nothing is below the page, so don't let DPAD_DOWN
-                            // jump into the rail; leaving to the rail is done with DPAD_LEFT.
-                            val dir = requestedFocusDirection
-                            if (dir == FocusDirection.Up ||
-                                (!isBar && dir == FocusDirection.Down) ||
-                                (isBar && (dir == FocusDirection.Left || dir == FocusDirection.Right))
-                            ) {
-                                cancelFocusChange()
-                            }
-                        }
-                        if (isBar && (tab == Tab.MODULES || tab == Tab.SUPERUSER)) {
-                            down = fabFocusRequester
-                        }
-                    }
-                    .focusGroup()
+                    .glassBackdropSource(pageBackdrop)
+                    .trackBackdropPosition(pageBackdrop),
             ) {
-                when (visibleTabs[page]) {
-                    Tab.HOME -> {
-                        val vm: HomeViewModel = viewModel(factory = VMFactory)
-                        val installVm: InstallViewModel = viewModel(factory = VMFactory)
-                        LaunchedEffect(isCurrentPage) {
-                            if (isCurrentPage) vm.startLoading()
-                        }
-                        CollectNavEvents(vm, navigator)
-                        CollectNavEvents(installVm, navigator)
-                        HomeScreen(vm, installVm)
-                    }
-                    Tab.SUPERUSER -> {
-                        val activity = LocalActivity.current as? ComponentActivity
-                        val vm: SuperuserViewModel = superuserViewModel
-                            ?: if (activity != null) {
-                                viewModel(viewModelStoreOwner = activity, factory = VMFactory)
-                            } else {
-                                viewModel(factory = VMFactory)
-                            }
-                        LaunchedEffect(isCurrentPage) {
-                            if (isCurrentPage) vm.startLoading()
-                        }
-                        CollectNavEvents(vm, navigator)
-                        SuperuserScreen(
-                            viewModel = vm,
-                            onRegisterFab = { superuserFabAction = it },
-                            isFabAtBottom = isBar,
-                            contentFocusRequester = superuserContentFocusRequester,
-                        )
-                    }
-                    Tab.LOG -> {
-                        val vm: LogViewModel = viewModel(factory = VMFactory)
-                        LaunchedEffect(isCurrentPage) {
-                            if (isCurrentPage) vm.startLoading()
-                        }
-                        LogScreen(vm)
-                    }
-                    Tab.MODULES -> {
-                        val vm: ModuleViewModel = viewModel(factory = VMFactory)
-                        LaunchedEffect(isCurrentPage) {
-                            if (isCurrentPage) vm.startLoading()
-                        }
-                        CollectNavEvents(vm, navigator)
-                        ModuleScreen(
-                            viewModel = vm,
-                            onRegisterFab = { moduleFabAction = it },
-                            isFabAtBottom = isBar,
-                            contentFocusRequester = moduleContentFocusRequester,
-                        )
-                    }
-                    Tab.SETTINGS -> {
-                        val vm: SettingsViewModel = viewModel(factory = VMFactory)
-                        CollectNavEvents(vm, navigator)
-                        SettingsScreen(vm)
-                    }
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = NavigationBarSurfaceHeight + navigationBarBottom + 8.dp),
+                    beyondViewportPageCount = 0,
+                ) { page ->
+                    MainPagerPage(
+                        page = page,
+                        visibleTabs = visibleTabs,
+                        pagerState = pagerState,
+                        navigator = navigator,
+                        superuserViewModel = superuserViewModel,
+                        onModuleFab = { moduleFabAction = it },
+                        onSuperuserFab = { superuserFabAction = it },
+                    )
                 }
             }
+            GlasmioNavigationBar(
+                items = visibleTabs.map { tab ->
+                    GlasmioTabItem(
+                        key = tab,
+                        label = stringResource(tab.titleRes),
+                        symbol = tab.symbol,
+                        contentDescription = "",
+                    )
+                },
+                selectedKey = currentTab ?: Tab.HOME,
+                onSelected = { tab ->
+                    scope.launch { pagerState.animateScrollToPage(visibleTabs.indexOf(tab)) }
+                },
+                onExpand = {},
+                compactProgress = remember { mutableStateOf(0f) },
+                compactSize = 48.dp,
+                backdrop = pageBackdrop,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp),
+            )
+        }
+
+        if (showFab) {
+            GlasmioIconButton(
+                onClick = {
+                    if (currentTab == Tab.MODULES) moduleFabAction?.invoke()
+                    else if (currentTab == Tab.SUPERUSER) superuserFabAction?.invoke()
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = 20.dp, bottom = if (isWide) 20.dp else 92.dp),
+                size = 56.dp,
+            ) {
+                SfIcon(
+                    "plus",
+                    contentDescription = stringResource(
+                        if (currentTab == Tab.MODULES) CoreR.string.module_action_install_external
+                        else CoreR.string.superuser_grant
+                    ),
+                    size = 26.dp,
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun MainPagerPage(
+    page: Int,
+    visibleTabs: List<Tab>,
+    pagerState: PagerState,
+    navigator: Navigator,
+    superuserViewModel: SuperuserViewModel?,
+    onModuleFab: (((() -> Unit)?) -> Unit),
+    onSuperuserFab: (((() -> Unit)?) -> Unit),
+) {
+    val isCurrentPage = pagerState.currentPage == page
+    val childOwner = rememberNavigationEventDispatcherOwner(enabled = isCurrentPage)
+    CompositionLocalProvider(LocalNavigationEventDispatcherOwner provides childOwner) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .focusProperties {
+                    onEnter = {
+                        if (!isCurrentPage) cancelFocusChange()
+                    }
+                    onExit = {
+                        when (requestedFocusDirection) {
+                            FocusDirection.Left,
+                            FocusDirection.Right,
+                            FocusDirection.Up,
+                            -> cancelFocusChange()
+                        }
+                    }
+                }
+                .focusGroup(),
+        ) {
+            MainTabPage(
+                tab = visibleTabs[page],
+                isCurrentPage = isCurrentPage,
+                navigator = navigator,
+                superuserViewModel = superuserViewModel,
+                onModuleFab = onModuleFab,
+                onSuperuserFab = onSuperuserFab,
+            )
+        }
+    }
+}
+
+@Composable
+private fun MainTabPage(
+    tab: Tab,
+    isCurrentPage: Boolean,
+    navigator: Navigator,
+    superuserViewModel: SuperuserViewModel?,
+    onModuleFab: (((() -> Unit)?) -> Unit),
+    onSuperuserFab: (((() -> Unit)?) -> Unit),
+) {
+    when (tab) {
+        Tab.HOME -> {
+            val vm: HomeViewModel = viewModel(factory = VMFactory)
+            val installVm: InstallViewModel = viewModel(factory = VMFactory)
+            LaunchedEffect(isCurrentPage) {
+                if (isCurrentPage) vm.startLoading()
+            }
+            CollectNavEvents(vm, navigator)
+            CollectNavEvents(installVm, navigator)
+            HomeScreen(vm, installVm)
+        }
+        Tab.SUPERUSER -> {
+            val activity = LocalActivity.current as? ComponentActivity
+            val vm: SuperuserViewModel = superuserViewModel
+                ?: if (activity != null) {
+                    viewModel(viewModelStoreOwner = activity, factory = VMFactory)
+                } else {
+                    viewModel(factory = VMFactory)
+                }
+            LaunchedEffect(isCurrentPage) {
+                if (isCurrentPage) vm.startLoading()
+            }
+            CollectNavEvents(vm, navigator)
+            SuperuserScreen(
+                viewModel = vm,
+                onRegisterFab = onSuperuserFab,
+                isFabAtBottom = true,
+            )
+        }
+        Tab.LOG -> {
+            val vm: LogViewModel = viewModel(factory = VMFactory)
+            LaunchedEffect(isCurrentPage) {
+                if (isCurrentPage) vm.startLoading()
+            }
+            LogScreen(vm)
+        }
+        Tab.MODULES -> {
+            val vm: ModuleViewModel = viewModel(factory = VMFactory)
+            LaunchedEffect(isCurrentPage) {
+                if (isCurrentPage) vm.startLoading()
+            }
+            CollectNavEvents(vm, navigator)
+            ModuleScreen(
+                viewModel = vm,
+                onRegisterFab = onModuleFab,
+                isFabAtBottom = true,
+            )
+        }
+        Tab.SETTINGS -> {
+            val vm: SettingsViewModel = viewModel(factory = VMFactory)
+            CollectNavEvents(vm, navigator)
+            SettingsScreen(vm)
         }
     }
 }

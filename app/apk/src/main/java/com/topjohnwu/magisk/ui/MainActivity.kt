@@ -13,15 +13,15 @@ import android.os.CancellationSignal
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -33,7 +33,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
-import androidx.navigation3.ui.NavDisplay
+import io.github.neoruaa.glasmio.scaffold.navigation.GlasmioNavDisplay
+import io.github.neoruaa.glasmio.scaffold.navigation.GlasmioNavHeaderMotion
 import com.topjohnwu.magisk.R
 import com.topjohnwu.magisk.arch.VMFactory
 import com.topjohnwu.magisk.core.Config
@@ -60,6 +61,7 @@ import com.topjohnwu.magisk.ui.superuser.SuperuserDetailScreen
 import com.topjohnwu.magisk.ui.superuser.SuperuserGrantScreen
 import com.topjohnwu.magisk.ui.superuser.SuperuserGrantViewModel
 import com.topjohnwu.magisk.ui.superuser.SuperuserViewModel
+import io.github.neoruaa.glasmio.core.GlasmioTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -123,31 +125,24 @@ class MainActivity : ComponentActivity(), SplashScreenHost {
 
         setContent {
             MagiskTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(GlasmioTheme.colors.groupedBackground)
+                ) {
                     val navigator = rememberNavigator(Route.Main)
+                    val headerMotion = remember { GlasmioNavHeaderMotion(navigator.current() ?: Route.Main) }
                     CompositionLocalProvider(LocalNavigator provides navigator) {
                         HandleFlashIntent(navigator)
 
-                        NavDisplay(
+                        GlasmioNavDisplay(
                             backStack = navigator.backStack,
+                            motion = headerMotion,
                             onBack = { navigator.pop() },
                             entryDecorators = listOf(
                                 rememberSaveableStateHolderNavEntryDecorator(),
                                 rememberViewModelStoreNavEntryDecorator<Any>()
                             ),
-                            // Start/End follow the layout direction, so RTL slides the other way
-                            transitionSpec = {
-                                slideIntoContainer(SlideDirection.Start) togetherWith
-                                    slideOutOfContainer(SlideDirection.Start)
-                            },
-                            popTransitionSpec = {
-                                slideIntoContainer(SlideDirection.End) togetherWith
-                                    slideOutOfContainer(SlideDirection.End)
-                            },
-                            predictivePopTransitionSpec = {
-                                slideIntoContainer(SlideDirection.End) togetherWith
-                                    slideOutOfContainer(SlideDirection.End)
-                            },
                             entryProvider = entryProvider {
                                 entry<Route.Main> {
                                     val superuserVm: SuperuserViewModel = viewModel(
@@ -422,4 +417,3 @@ private fun MainActivityDialogs(
         }
     }
 }
-

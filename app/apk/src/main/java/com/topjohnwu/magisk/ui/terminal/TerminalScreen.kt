@@ -36,6 +36,9 @@ import kotlin.math.max
 
 private const val MIN_TERMINAL_COLUMNS = 256
 
+// The terminal canvas stays black in both themes, so the scroll indicators must stay light
+private val TerminalScrollbarColor = Color.White.copy(alpha = 0.6f)
+
 @Composable
 fun TerminalScreen(
     emulator: TerminalEmulator,
@@ -134,6 +137,8 @@ fun TerminalScreen(
                         scrolledToBottom = newRow >= 0
                     },
                     isScrollInProgress = verticalScrollableState.isScrollInProgress,
+                    // The canvas is always black, independent of the app theme
+                    thumbColor = TerminalScrollbarColor,
                 )
                 .terminalHorizontalScrollbar(
                     scrollXProvider = { scrollX },
@@ -141,6 +146,7 @@ fun TerminalScreen(
                     viewportWidth = widthPx,
                     onScrollToX = { newScrollX -> scrollX = newScrollX },
                     isScrollInProgress = horizontalScrollableState.isScrollInProgress,
+                    thumbColor = TerminalScrollbarColor,
                 )
                 .scrollable(
                     orientation = Orientation.Vertical,

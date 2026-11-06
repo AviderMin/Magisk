@@ -9,46 +9,30 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,11 +42,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -84,14 +67,22 @@ import com.topjohnwu.magisk.ui.MainActivity
 import com.topjohnwu.magisk.ui.component.ConfirmResult
 import com.topjohnwu.magisk.ui.component.MagiskDialog
 import com.topjohnwu.magisk.ui.component.MarkdownTextAsync
-import com.topjohnwu.magisk.ui.component.onlyHorizontal
 import com.topjohnwu.magisk.ui.component.rememberConfirmDialog
 import com.topjohnwu.magisk.ui.component.verticalScrollbar
 import com.topjohnwu.magisk.utils.textHolder
+import io.github.neoruaa.glasmio.core.GlasmioTheme
+import io.github.neoruaa.glasmio.core.IosTypography
+import io.github.neoruaa.glasmio.glass.GlassEmphasis
+import io.github.neoruaa.glasmio.icons.SfIcon
+import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedPage
+import io.github.neoruaa.glasmio.ui.GlasmioButton
+import io.github.neoruaa.glasmio.ui.GlasmioButtonSize
+import io.github.neoruaa.glasmio.ui.GlasmioCard
+import io.github.neoruaa.glasmio.ui.GlasmioIconButton
+import io.github.neoruaa.glasmio.ui.GlasmioSwitch
 import kotlinx.coroutines.launch
 import com.topjohnwu.magisk.core.R as CoreR
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModuleScreen(
     viewModel: ModuleViewModel,
@@ -101,8 +92,7 @@ fun ModuleScreen(
     contentFocusRequester: FocusRequester? = null,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    val colorScheme = MaterialTheme.colorScheme
+    val colors = GlasmioTheme.colors
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -158,124 +148,133 @@ fun ModuleScreen(
         )
     }
 
-    Scaffold(
+    val gridState = rememberLazyStaggeredGridState()
+    val topBarBlurProgress = rememberModuleHeaderScrollEdge(gridState)
+    GlasmioPinnedPage(
+        title = stringResource(CoreR.string.modules),
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(CoreR.string.modules)) },
-                scrollBehavior = scrollBehavior
-            )
-        },
-        floatingActionButton = {
-            if (onRegisterFab == null) {
-                FloatingActionButton(
-                    onClick = { filePicker.launch("application/zip") },
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    content = {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(CoreR.string.module_action_install_external),
-                            modifier = Modifier.size(28.dp),
-                        )
-                    },
-                )
-            }
-        }
+        topBarBlurProgress = topBarBlurProgress,
     ) { padding ->
-        if (uiState.loading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-            return@Scaffold
-        }
-
-        if (uiState.modules.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.padding(horizontal = 32.dp)
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (uiState.loading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_module),
-                        contentDescription = null,
-                        tint = colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        text = stringResource(CoreR.string.module_empty),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
+                    CircularProgressIndicator(color = colors.accent)
+                }
+            } else if (uiState.modules.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(horizontal = 32.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_module),
+                            contentDescription = null,
+                            tint = colors.secondaryContent.copy(alpha = 0.6f),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Text(
+                            text = stringResource(CoreR.string.module_empty),
+                            style = IosTypography.body,
+                            color = colors.secondaryContent,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                val listBottomPadding = padding.calculateBottomPadding() + if (isFabAtBottom) 92.dp else 12.dp
+                val scrollbarBottomPadding = padding.calculateBottomPadding() + if (isFabAtBottom) 80.dp else 12.dp
+
+                // Staggered, as cards expand; 360dp leaves room for the action buttons row
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(360.dp),
+                    state = gridState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScrollbar(
+                            gridState,
+                            contentPadding = PaddingValues(
+                                top = padding.calculateTopPadding(),
+                                bottom = scrollbarBottomPadding,
+                            ),
+                            thumbColor = colors.secondaryContent,
+                        ),
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        top = padding.calculateTopPadding() + 4.dp,
+                        end = 12.dp,
+                        bottom = listBottomPadding,
+                    ),
+                    verticalItemSpacing = 8.dp,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(
+                        items = uiState.modules,
+                        // Module ids come from module.prop and can be duplicated, directory names can't
+                        key = { it.module.base.name },
+                        contentType = { "ModuleCard" }
+                    ) { item ->
+                        val isLast = item == uiState.modules.lastOrNull()
+                        ModuleCard(
+                            item = item,
+                            viewModel = viewModel,
+                            modifier = if (isLast && contentFocusRequester != null) {
+                                Modifier.focusRequester(contentFocusRequester)
+                            } else Modifier,
+                            onUpdateClick = { onlineModule ->
+                                if (onlineModule != null && Info.isConnected.value == true) {
+                                    pendingOnlineModule = onlineModule
+                                    showOnlineDialog = true
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            if (onRegisterFab == null) {
+                GlasmioIconButton(
+                    onClick = { filePicker.launch("application/zip") },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(24.dp)
+                        .navigationBarsPadding(),
+                    size = 56.dp,
+                    emphasis = GlassEmphasis.Prominent,
+                ) {
+                    SfIcon(
+                        "plus",
+                        stringResource(CoreR.string.module_action_install_external),
+                        size = 28.dp,
                     )
                 }
             }
-            return@Scaffold
-        }
-
-        val listBottomPadding = padding.calculateBottomPadding() + if (isFabAtBottom) 92.dp else 12.dp
-        val scrollbarBottomPadding = padding.calculateBottomPadding() + if (isFabAtBottom) 80.dp else 12.dp
-
-        val gridState = rememberLazyStaggeredGridState()
-        // Staggered, as cards expand; 360dp leaves room for the action buttons row
-        LazyVerticalStaggeredGrid(
-            columns = StaggeredGridCells.Adaptive(360.dp),
-            state = gridState,
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .consumeWindowInsets(padding)
-                .padding(padding.onlyHorizontal())
-                .verticalScrollbar(
-                    gridState,
-                    contentPadding = PaddingValues(
-                        top = padding.calculateTopPadding() + 4.dp,
-                        bottom = scrollbarBottomPadding,
-                    ),
-                ),
-            contentPadding = PaddingValues(
-                start = 12.dp,
-                top = padding.calculateTopPadding() + 16.dp,
-                end = 12.dp,
-                bottom = listBottomPadding,
-            ),
-            verticalItemSpacing = 8.dp,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(
-                items = uiState.modules,
-                // Module ids come from module.prop and can be duplicated, directory names can't
-                key = { it.module.base.name },
-                contentType = { "ModuleCard" }
-            ) { item ->
-                val isLast = item == uiState.modules.lastOrNull()
-                ModuleCard(
-                    item = item,
-                    viewModel = viewModel,
-                    modifier = if (isLast && contentFocusRequester != null) {
-                        Modifier.focusRequester(contentFocusRequester)
-                    } else Modifier,
-                    onUpdateClick = { onlineModule ->
-                        if (onlineModule != null && Info.isConnected.value == true) {
-                            pendingOnlineModule = onlineModule
-                            showOnlineDialog = true
-                        }
-                    }
-                )
-            }
         }
     }
+}
+
+/** Scroll-edge progress for the staggered grid, using the same 56dp distance as Glasmio's pages. */
+@Composable
+private fun rememberModuleHeaderScrollEdge(state: LazyStaggeredGridState): Float {
+    val density = LocalDensity.current
+    val distancePx = with(density) { 56.dp.toPx().coerceAtLeast(1f) }
+    val progress by remember(state, distancePx) {
+        derivedStateOf {
+            if (state.firstVisibleItemIndex > 0) 1f
+            else (state.firstVisibleItemScrollOffset / distancePx).coerceIn(0f, 1f)
+        }
+    }
+    return progress
 }
 
 @Composable
@@ -287,16 +286,15 @@ private fun ModuleCard(
 ) {
     val infoAlpha = if (!item.isRemoved && item.isEnabled && !item.showNotice) 1f else 0.5f
     val strikeThrough = if (item.isRemoved) TextDecoration.LineThrough else TextDecoration.None
-    val colorScheme = MaterialTheme.colorScheme
+    val colors = GlasmioTheme.colors
     var expanded by rememberSaveable(item.module.base.name) { mutableStateOf(false) }
     val hasDescription = item.module.description.isNotBlank()
 
-    Card(
-        onClick = { expanded = !expanded },
-        enabled = hasDescription,
+    GlasmioCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceContainerLow)
+        onClick = if (hasDescription) {
+            { expanded = !expanded }
+        } else null,
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Column(modifier = Modifier.alpha(infoAlpha)) {
@@ -312,7 +310,7 @@ private fun ModuleCard(
                     ) {
                         Text(
                             text = item.module.name,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = IosTypography.headline,
                             textDecoration = strikeThrough,
                         )
                         Spacer(Modifier.height(2.dp))
@@ -322,12 +320,12 @@ private fun ModuleCard(
                                 item.module.version,
                                 item.module.author
                             ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colorScheme.onSurfaceVariant,
+                            style = IosTypography.subheadline,
+                            color = colors.secondaryContent,
                             textDecoration = strikeThrough,
                         )
                     }
-                    Switch(
+                    GlasmioSwitch(
                         checked = item.isEnabled,
                         onCheckedChange = { viewModel.toggleEnabled(item) },
                         // The switch is its own node, so name the module it enables
@@ -348,8 +346,8 @@ private fun ModuleCard(
                     ) {
                         Text(
                             text = item.module.description,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colorScheme.onSurfaceVariant,
+                            style = IosTypography.subheadline,
+                            color = colors.secondaryContent,
                             textDecoration = strikeThrough,
                             overflow = if (expanded) TextOverflow.Clip else TextOverflow.Ellipsis,
                             maxLines = if (expanded) Int.MAX_VALUE else 3,
@@ -361,14 +359,20 @@ private fun ModuleCard(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = textHolder(item.noticeText),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = IosTypography.subheadline,
                         fontWeight = FontWeight.Medium,
-                        color = colorScheme.primary,
+                        color = colors.accent,
                     )
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+                    .height(1.dp)
+                    .background(colors.separator)
+            )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 AnimatedVisibility(
@@ -378,28 +382,16 @@ private fun ModuleCard(
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (item.showAction) {
-                            FilledTonalButton(
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                            GlasmioButton(
                                 // Drop taps while a screen transition runs, so a quick
                                 // second tap can't open another screen
                                 onClick = dropUnlessResumed {
                                     viewModel.runAction(item.module.base.name, item.module.name)
                                 },
+                                size = GlasmioButtonSize.Medium,
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    Icon(
-                                        modifier = Modifier.size(18.dp),
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = null
-                                    )
-                                    Text(
-                                        text = stringResource(CoreR.string.module_action),
-                                        style = MaterialTheme.typography.labelLarge,
-                                    )
-                                }
+                                SfIcon("play.fill", null, size = 18.dp)
+                                Text(stringResource(CoreR.string.module_action))
                             }
                         }
                     }
@@ -412,62 +404,34 @@ private fun ModuleCard(
                     enter = fadeIn(),
                     exit = fadeOut()
                 ) {
-                    FilledTonalButton(
+                    GlasmioButton(
                         modifier = Modifier.padding(end = 8.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = colorScheme.tertiaryContainer,
-                            contentColor = colorScheme.onTertiaryContainer
-                        ),
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                         onClick = { onUpdateClick(item.module.updateInfo) },
+                        size = GlasmioButtonSize.Medium,
+                        emphasis = GlassEmphasis.Prominent,
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(
-                                modifier = Modifier.size(18.dp),
-                                imageVector = Icons.Default.CloudUpload,
-                                contentDescription = null,
-                            )
-                            Text(
-                                text = stringResource(CoreR.string.update),
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        }
+                        SfIcon("arrow.up.circle", null, size = 18.dp)
+                        Text(stringResource(CoreR.string.update))
                     }
                 }
 
-                FilledTonalButton(
-                    colors = if (item.isRemoved) {
-                        ButtonDefaults.filledTonalButtonColors()
-                    } else {
-                        ButtonDefaults.filledTonalButtonColors(
-                            containerColor = colorScheme.errorContainer,
-                            contentColor = colorScheme.onErrorContainer
-                        )
-                    },
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                GlasmioButton(
                     onClick = { viewModel.toggleRemove(item) },
-                    enabled = !item.isUpdated
+                    enabled = !item.isUpdated,
+                    size = GlasmioButtonSize.Medium,
+                    destructive = !item.isRemoved,
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(18.dp),
-                            imageVector = if (item.isRemoved) Icons.AutoMirrored.Filled.Undo else Icons.Default.Delete,
-                            contentDescription = null
+                    SfIcon(
+                        if (item.isRemoved) "arrow.uturn.backward" else "trash",
+                        null,
+                        size = 18.dp,
+                    )
+                    Text(
+                        stringResource(
+                            if (item.isRemoved) CoreR.string.module_state_restore
+                            else CoreR.string.module_state_remove
                         )
-                        Text(
-                            text = stringResource(
-                                if (item.isRemoved) CoreR.string.module_state_restore
-                                else CoreR.string.module_state_remove
-                            ),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
+                    )
                 }
             }
         }

@@ -10,46 +10,19 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Android
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.RestartAlt
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,16 +33,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -88,16 +59,25 @@ import com.topjohnwu.magisk.ui.component.AdaptiveColumns
 import com.topjohnwu.magisk.ui.component.LoadingDialog
 import com.topjohnwu.magisk.ui.component.MagiskDialog
 import com.topjohnwu.magisk.ui.component.MarkdownTextAsync
-import com.topjohnwu.magisk.ui.component.onlyHorizontal
 import com.topjohnwu.magisk.ui.component.verticalScrollbar
 import com.topjohnwu.magisk.ui.install.InstallDialog
 import com.topjohnwu.magisk.ui.install.InstallViewModel
 import com.topjohnwu.magisk.ui.navigation.LocalNavigator
 import com.topjohnwu.magisk.ui.navigation.Route
+import io.github.neoruaa.glasmio.core.GlasmioTheme
+import io.github.neoruaa.glasmio.core.IosTypography
+import io.github.neoruaa.glasmio.glass.GlassEmphasis
+import io.github.neoruaa.glasmio.icons.SfIcon
+import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedPage
+import io.github.neoruaa.glasmio.ui.GlasmioButton
+import io.github.neoruaa.glasmio.ui.GlasmioButtonSize
+import io.github.neoruaa.glasmio.ui.GlasmioCard
+import io.github.neoruaa.glasmio.ui.GlasmioIconButton
+import io.github.neoruaa.glasmio.ui.GlasmioMenu
+import io.github.neoruaa.glasmio.ui.GlasmioMenuItem
 import java.io.File
 import com.topjohnwu.magisk.core.R as CoreR
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
@@ -107,7 +87,6 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val navigator = LocalNavigator.current
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showUninstallDialog by rememberSaveable { mutableStateOf(false) }
     // Keep the update itself, so a restored dialog doesn't depend on Info.update, which is reset
@@ -184,49 +163,38 @@ fun HomeScreen(
     }
 
     val scrollState = rememberScrollState()
+    val collapseDistancePx = with(LocalDensity.current) { 56.dp.toPx() }.coerceAtLeast(1f)
+    val topBarBlurProgress = (scrollState.value / collapseDistancePx).coerceIn(0f, 1f)
 
-    Scaffold(
+    GlasmioPinnedPage(
+        title = stringResource(CoreR.string.section_home),
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(CoreR.string.section_home)) },
-                scrollBehavior = scrollBehavior,
-                actions = {
-                    if (Info.env.isActive) {
-                        IconButton(onClick = { viewModel.onDeletePressed() }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = stringResource(CoreR.string.uninstall_magisk_title),
-                            )
-                        }
-                    }
-                    if (Info.isRooted) {
-                        RebootButton()
-                    }
+        topBarBlurProgress = topBarBlurProgress,
+        actions = {
+            if (Info.env.isActive) {
+                GlasmioIconButton(onClick = { viewModel.onDeletePressed() }) {
+                    SfIcon(
+                        "trash",
+                        contentDescription = stringResource(CoreR.string.uninstall_magisk_title),
+                    )
                 }
-            )
-        }
+            }
+            if (Info.isRooted) {
+                RebootButton()
+            }
+        },
     ) { padding ->
         AdaptiveColumns(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .consumeWindowInsets(padding)
-                .padding(padding.onlyHorizontal())
+                .padding(padding)
                 .verticalScrollbar(
                     scrollState,
-                    contentPadding = PaddingValues(
-                        top = padding.calculateTopPadding() + 12.dp,
-                        bottom = padding.calculateBottomPadding() + 12.dp,
-                    ),
+                    contentPadding = PaddingValues(vertical = 12.dp),
                 )
                 .verticalScroll(scrollState)
-                .padding(
-                    start = 16.dp,
-                    top = padding.calculateTopPadding() + 12.dp,
-                    end = 16.dp,
-                    bottom = padding.calculateBottomPadding() + 12.dp,
-                ),
+                .padding(horizontal = 16.dp)
+                .padding(top = 12.dp, bottom = 12.dp),
             spacing = 12.dp,
             first = {
                 if (uiState.isNoticeVisible) {
@@ -252,23 +220,10 @@ fun HomeScreen(
                 )
             },
             second = {
-                Text(
-                    text = stringResource(CoreR.string.home_support_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
-                )
-
+                SectionHeader(stringResource(CoreR.string.home_support_title))
                 SupportCard(onLinkClicked = viewModel::onLinkPressed)
 
-                Text(
-                    text = stringResource(CoreR.string.home_follow_title),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp)
-                )
+                SectionHeader(stringResource(CoreR.string.home_follow_title))
                 DevelopersCard(onLinkClicked = viewModel::onLinkPressed)
             },
         )
@@ -282,28 +237,39 @@ fun HomeScreen(
 }
 
 @Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = IosTypography.footnote,
+        color = GlasmioTheme.colors.secondaryContent,
+        modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
 private fun RebootButton(
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     var safeModeEnabled by remember { mutableIntStateOf(Config.bootloop) }
+    val colors = GlasmioTheme.colors
 
     val showUserspace = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
         context.getSystemService<PowerManager>()?.isRebootingUserspaceSupported == true
     val showSafeMode = Const.Version.atLeast_28_0()
 
     val items = buildList {
-        add(RebootOption(CoreR.string.reboot, Icons.Default.RestartAlt) { reboot() })
+        add(RebootOption(CoreR.string.reboot, "arrow.clockwise") { reboot() })
         if (showUserspace) {
-            add(RebootOption(CoreR.string.reboot_userspace, Icons.Default.Refresh) { reboot("userspace") })
+            add(RebootOption(CoreR.string.reboot_userspace, "arrow.triangle.2.circlepath") { reboot("userspace") })
         }
-        add(RebootOption(CoreR.string.reboot_recovery, Icons.Default.Build) { reboot("recovery") })
-        add(RebootOption(CoreR.string.reboot_bootloader, Icons.Default.Android) { reboot("bootloader") })
-        add(RebootOption(CoreR.string.reboot_download, Icons.Default.Download) { reboot("download") })
-        add(RebootOption(CoreR.string.reboot_edl, Icons.Default.Memory) { reboot("edl") })
+        add(RebootOption(CoreR.string.reboot_recovery, "arrow.counterclockwise") { reboot("recovery") })
+        add(RebootOption(CoreR.string.reboot_bootloader, "wrench.and.screwdriver") { reboot("bootloader") })
+        add(RebootOption(CoreR.string.reboot_download, "arrow.down.circle") { reboot("download") })
+        add(RebootOption(CoreR.string.reboot_edl, "memorychip") { reboot("edl") })
         if (showSafeMode) {
-            add(RebootOption(CoreR.string.reboot_safe_mode, Icons.Default.Security) {
+            add(RebootOption(CoreR.string.reboot_safe_mode, "shield.lefthalf.filled") {
                 val newVal = if (safeModeEnabled >= 2) 0 else 2
                 Config.bootloop = newVal
                 safeModeEnabled = newVal
@@ -311,97 +277,83 @@ private fun RebootButton(
         }
     }
 
-    Box(modifier = modifier) {
-        IconButton(
-            onClick = { showMenu = true },
-        ) {
-            Icon(
-                imageVector = Icons.Default.PowerSettingsNew,
-                contentDescription = stringResource(CoreR.string.reboot),
-            )
-        }
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-            offset = DpOffset(x = (-8).dp, y = 0.dp),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            items.forEach { item ->
-                val isSafeMode = item.labelRes == CoreR.string.reboot_safe_mode
-                if (isSafeMode) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                    )
-                }
-                DropdownMenuItem(
-                    // The check mark is the only sign of the safe mode state, so expose it
-                    modifier = if (isSafeMode) {
-                        Modifier.semantics { toggleableState = ToggleableState(safeModeEnabled >= 2) }
-                    } else Modifier,
-                    text = {
-                        Text(
-                            text = stringResource(item.labelRes),
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    trailingIcon = if (isSafeMode && safeModeEnabled >= 2) {
-                        {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    } else null,
-                    onClick = {
-                        item.action()
-                        if (!isSafeMode) showMenu = false
-                    }
+    GlasmioMenu(
+        expanded = showMenu,
+        onExpandedChange = { showMenu = it },
+        itemCount = items.size,
+        modifier = modifier,
+        anchor = { open ->
+            GlasmioIconButton(onClick = open) {
+                SfIcon(
+                    "power",
+                    contentDescription = stringResource(CoreR.string.reboot),
                 )
             }
+        },
+    ) { backdrop, close ->
+        items.forEach { item ->
+            val isSafeMode = item.labelRes == CoreR.string.reboot_safe_mode
+            GlasmioMenuItem(
+                title = stringResource(item.labelRes),
+                onClick = {
+                    item.action()
+                    if (!isSafeMode) close()
+                },
+                // The check mark is the only sign of the safe mode state, so expose it
+                modifier = if (isSafeMode) {
+                    Modifier.semantics { toggleableState = ToggleableState(safeModeEnabled >= 2) }
+                } else Modifier,
+                systemName = item.systemName,
+                backdrop = backdrop,
+                trailing = if (isSafeMode && safeModeEnabled >= 2) {
+                    {
+                        SfIcon(
+                            "checkmark",
+                            contentDescription = null,
+                            size = 20.dp,
+                            tint = colors.accent,
+                        )
+                    }
+                } else null,
+            )
         }
     }
 }
 
-private class RebootOption(val labelRes: Int, val icon: ImageVector, val action: () -> Unit)
+private class RebootOption(val labelRes: Int, val systemName: String, val action: () -> Unit)
 
 @Composable
 private fun NoticeCard(
     onHide: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
-    ) {
+    val colors = GlasmioTheme.colors
+    GlasmioCard(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(colors.accent.copy(alpha = 0.12f))
+                .padding(start = 16.dp, top = 6.dp, bottom = 6.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = stringResource(CoreR.string.home_notice_content),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                style = IosTypography.subheadline,
+                color = colors.content,
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 6.dp)
             )
-            IconButton(onClick = onHide) {
-                Icon(
-                    imageVector = Icons.Default.Close,
+            GlasmioIconButton(
+                onClick = onHide,
+                size = 32.dp,
+                sampleBackdrop = false,
+            ) {
+                SfIcon(
+                    "xmark",
                     contentDescription = stringResource(CoreR.string.hide),
-                    modifier = Modifier.size(18.dp),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    size = 16.dp,
+                    tint = colors.secondaryContent,
                 )
             }
         }
@@ -415,35 +367,18 @@ private fun InstallButton(
     modifier: Modifier = Modifier,
     isPrimary: Boolean = false,
 ) {
-    val buttonContent = @Composable {
+    GlasmioButton(
+        onClick = onClick,
+        modifier = modifier,
+        emphasis = if (isPrimary) GlassEmphasis.Prominent else GlassEmphasis.Regular,
+        size = GlasmioButtonSize.Medium,
+    ) {
         Icon(
             painter = painterResource(R.drawable.ic_download),
             contentDescription = null,
-            modifier = Modifier.size(ButtonDefaults.IconSize),
+            modifier = Modifier.size(18.dp),
         )
-        Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-        )
-    }
-
-    if (isPrimary) {
-        Button(
-            onClick = onClick,
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-            modifier = modifier,
-        ) {
-            buttonContent()
-        }
-    } else {
-        FilledTonalButton(
-            onClick = onClick,
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-            modifier = modifier,
-        ) {
-            buttonContent()
-        }
+        Text(text = label)
     }
 }
 
@@ -454,6 +389,7 @@ private fun CoreCard(
     onInstallClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = GlasmioTheme.colors
     val isInstalled = state != HomeViewModel.State.INVALID
     val actionLabel = when (state) {
         HomeViewModel.State.OUTDATED -> stringResource(CoreR.string.update)
@@ -462,11 +398,7 @@ private fun CoreCard(
         HomeViewModel.State.LOADING -> null
     }
 
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    GlasmioCard(modifier = modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -481,14 +413,15 @@ private fun CoreCard(
                 Icon(
                     painter = painterResource(CoreR.drawable.ic_magisk_outline),
                     contentDescription = null,
-                    tint = if (isInstalled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    tint = if (isInstalled) colors.accent else colors.tertiaryContent,
                     modifier = Modifier.size(48.dp)
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
                     Text(
                         text = stringResource(CoreR.string.magisk),
-                        style = MaterialTheme.typography.titleLarge
+                        style = IosTypography.title3,
+                        color = colors.content,
                     )
                     Text(
                         text = if (isInstalled) {
@@ -496,12 +429,8 @@ private fun CoreCard(
                         } else {
                             stringResource(CoreR.string.not_installed)
                         },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isInstalled) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.error
-                        }
+                        style = IosTypography.subheadline,
+                        color = if (isInstalled) colors.secondaryContent else colors.destructive,
                     )
                 }
             }
@@ -517,7 +446,6 @@ private fun CoreCard(
     }
 }
 
-
 @Composable
 private fun AppCard(
     state: HomeViewModel.State,
@@ -527,17 +455,14 @@ private fun AppCard(
     onManagerPressed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = GlasmioTheme.colors
     val actionLabel = when (state) {
         HomeViewModel.State.OUTDATED -> stringResource(CoreR.string.update)
         HomeViewModel.State.UP_TO_DATE -> stringResource(CoreR.string.reinstall)
         else -> null
     }
 
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    GlasmioCard(modifier = modifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -552,13 +477,14 @@ private fun AppCard(
                     Icon(
                         painter = painterResource(R.drawable.ic_manager),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = colors.accent,
                         modifier = Modifier.size(48.dp)
                     )
                     Spacer(Modifier.width(16.dp))
                     Text(
                         text = stringResource(CoreR.string.home_app_title),
-                        style = MaterialTheme.typography.titleLarge
+                        style = IosTypography.title3,
+                        color = colors.content,
                     )
                 }
 
@@ -580,10 +506,22 @@ private fun AppCard(
 
             if (progress in 1..99) {
                 Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress / 100f },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(colors.separator)
+                        .progressSemantics(progress / 100f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress / 100f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(colors.accent)
+                    )
+                }
             }
         }
     }
@@ -595,6 +533,7 @@ private fun AppDetailRow(
     value: String,
     modifier: Modifier = Modifier
 ) {
+    val colors = GlasmioTheme.colors
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -603,13 +542,13 @@ private fun AppDetailRow(
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = IosTypography.subheadline,
+            color = colors.secondaryContent
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface
+            style = IosTypography.subheadline,
+            color = colors.content
         )
     }
 }
@@ -620,6 +559,7 @@ private data class StatusInfo(val label: String, val status: String)
 private fun StatusCard(
     modifier: Modifier = Modifier
 ) {
+    val colors = GlasmioTheme.colors
     val statuses = listOf(
         StatusInfo(
             label = stringResource(CoreR.string.zygisk),
@@ -631,11 +571,7 @@ private fun StatusCard(
         )
     )
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    GlasmioCard(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -652,21 +588,23 @@ private fun StatusCard(
                 ) {
                     Text(
                         text = info.label,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = IosTypography.subheadline,
+                        color = colors.secondaryContent
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = info.status,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = IosTypography.headline,
+                        color = colors.content
                     )
                 }
                 if (index < statuses.lastIndex) {
-                    VerticalDivider(
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    Box(
+                        modifier = Modifier
+                            .width(0.5.dp)
+                            .fillMaxHeight()
+                            .padding(vertical = 12.dp)
+                            .background(colors.separator.copy(alpha = 0.5f))
                     )
                 }
             }
@@ -679,16 +617,13 @@ private fun SupportCard(
     onLinkClicked: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    val colors = GlasmioTheme.colors
+    GlasmioCard(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(18.dp)) {
             Text(
                 text = stringResource(CoreR.string.home_support_content),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = IosTypography.subheadline,
+                color = colors.secondaryContent
             )
             Spacer(Modifier.height(16.dp))
             Row(
@@ -696,35 +631,27 @@ private fun SupportCard(
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                FilledTonalButton(
+                GlasmioButton(
                     onClick = { onLinkClicked(Const.Url.PATREON_URL) },
-                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                    size = GlasmioButtonSize.Medium,
                 ) {
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_patreon),
                         contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                        modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(
-                        text = stringResource(CoreR.string.patreon),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Text(text = stringResource(CoreR.string.patreon))
                 }
-                FilledTonalButton(
+                GlasmioButton(
                     onClick = { onLinkClicked("https://paypal.me/magiskdonate") },
-                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                    size = GlasmioButtonSize.Medium,
                 ) {
                     Icon(
                         painter = painterResource(CoreR.drawable.ic_paypal),
                         contentDescription = null,
-                        modifier = Modifier.size(ButtonDefaults.IconSize),
+                        modifier = Modifier.size(18.dp),
                     )
-                    Spacer(Modifier.width(ButtonDefaults.IconSpacing))
-                    Text(
-                        text = stringResource(CoreR.string.paypal),
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    Text(text = stringResource(CoreR.string.paypal))
                 }
             }
         }
@@ -763,11 +690,8 @@ private fun DevelopersCard(
     onLinkClicked: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-    ) {
+    val colors = GlasmioTheme.colors
+    GlasmioCard(modifier = modifier.fillMaxWidth()) {
         Column {
             developers.forEachIndexed { index, dev ->
                 Row(
@@ -779,27 +703,35 @@ private fun DevelopersCard(
                 ) {
                     Text(
                         text = "@${dev.name}",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = IosTypography.body,
+                        color = colors.content,
                     )
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         dev.links.forEach { link ->
-                            IconButton(onClick = { onLinkClicked(link.url) }) {
+                            GlasmioIconButton(
+                                onClick = { onLinkClicked(link.url) },
+                                size = 36.dp,
+                                sampleBackdrop = false,
+                            ) {
                                 Icon(
                                     painter = painterResource(link.icon),
                                     contentDescription = stringResource(link.label),
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(22.dp),
+                                    tint = colors.accent,
                                 )
                             }
                         }
                     }
                 }
                 if (index < developers.lastIndex) {
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(horizontal = 18.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp)
+                            .height(0.5.dp)
+                            .background(colors.separator.copy(alpha = 0.5f))
                     )
                 }
             }

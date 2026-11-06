@@ -9,8 +9,9 @@ retrofit = "3.0.0"
 room = "2.8.5"
 lifecycle = "2.11.0"
 compose-ui = "1.12.1"
+glasmio = "0.1.2"
 compose-m3 = "1.4.0"
-navigation3 = "1.1.7"
+navigation3 = "1.2.0"
 navigationevent = "1.1.2"
 wire = "7.0.3"
 
@@ -58,6 +59,12 @@ compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = 
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose-ui" }
 compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-m3" }
 compose-material3-adaptive-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite", version.ref = "compose-m3" }
+glasmio-core = { module = "io.github.neoruaa.glasmio:glasmio-core", version.ref = "glasmio" }
+glasmio-glass = { module = "io.github.neoruaa.glasmio:glasmio-glass", version.ref = "glasmio" }
+glasmio-ui = { module = "io.github.neoruaa.glasmio:glasmio-ui", version.ref = "glasmio" }
+glasmio-scaffold = { module = "io.github.neoruaa.glasmio:glasmio-scaffold", version.ref = "glasmio" }
+glasmio-preference = { module = "io.github.neoruaa.glasmio:glasmio-preference", version.ref = "glasmio" }
+glasmio-icons = { module = "io.github.neoruaa.glasmio:glasmio-icons", version.ref = "glasmio" }
 window-core = { module = "androidx.window:window-core", version = "1.5.0" }
 compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version = "1.7.8" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }

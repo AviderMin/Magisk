@@ -22,6 +22,8 @@ android {
     }
 
     defaultConfig {
+        // Glasmio requires Android 13 (API 33)
+        minSdk = 33
         proguardFile("proguard-rules.pro")
     }
 
@@ -53,9 +55,13 @@ dependencies {
     implementation(libs.window.core)
     implementation(libs.material)
 
+    // Glasmio (iOS-style Liquid Glass Compose UI framework)
+    implementation(libs.glasmio.scaffold)
+    implementation(libs.glasmio.preference)
+    implementation(libs.glasmio.icons)
+
     // Navigation3
     implementation(libs.navigation3.runtime)
     implementation(libs.navigationevent.compose)
     implementation(libs.lifecycle.viewmodel.navigation3)
-    implementation(libs.navigation3.ui)
 }

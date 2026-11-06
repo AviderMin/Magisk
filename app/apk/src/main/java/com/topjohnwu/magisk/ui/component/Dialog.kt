@@ -7,30 +7,21 @@ import android.text.style.ClickableSpan
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.TextView
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import kotlin.math.abs
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -53,6 +44,14 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.topjohnwu.magisk.core.R
 import com.topjohnwu.magisk.core.di.ServiceLocator
+import io.github.neoruaa.glasmio.core.GlasmioTheme
+import io.github.neoruaa.glasmio.core.IosTypography
+import io.github.neoruaa.glasmio.ui.GlasmioAlertButtonLayout
+import io.github.neoruaa.glasmio.ui.GlasmioAlertButtonRole
+import io.github.neoruaa.glasmio.ui.GlasmioAlertButtonSpec
+import io.github.neoruaa.glasmio.ui.GlasmioAlertDialog
+import io.github.neoruaa.glasmio.ui.GlasmioCard
+import kotlin.math.abs
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -261,30 +260,20 @@ fun LoadingDialog(
             onDismissRequest = {},
             properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
         ) {
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                tonalElevation = 6.dp,
-                modifier = modifier.widthIn(max = 320.dp)
-            ) {
-                Box(
+            GlasmioCard(modifier = modifier.widthIn(max = 320.dp)) {
+                Row(
                     modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                    contentAlignment = Alignment.CenterStart
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
-                    ) {
-                        CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            modifier = Modifier.padding(start = 16.dp),
-                            text = stringResource(R.string.loading),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                    }
+                    CircularProgressIndicator(
+                        color = GlasmioTheme.colors.accent,
+                    )
+                    Text(
+                        modifier = Modifier.padding(start = 16.dp),
+                        text = stringResource(R.string.loading),
+                        style = IosTypography.body,
+                        color = GlasmioTheme.colors.content,
+                    )
                 }
             }
         }
@@ -304,89 +293,45 @@ fun MagiskDialog(
     scrollable: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Dialog(
+    val hasButtons = confirmButton != null || dismissButton != null || neutralButton != null
+    GlasmioAlertDialog(
         onDismissRequest = onDismissRequest,
+        title = "",
+        titleContent = title?.let {
+            {
+                CompositionLocalProvider(LocalContentColor provides GlasmioTheme.colors.content) {
+                    it()
+                }
+            }
+        },
+        modifier = modifier,
         properties = DialogProperties(
-            dismissOnClickOutside = dismissOnClickOutside,
             dismissOnBackPress = dismissOnBackPress,
+            dismissOnClickOutside = dismissOnClickOutside,
             usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
+        ),
     ) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            tonalElevation = 6.dp,
-            modifier = modifier
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(horizontal = 24.dp, vertical = 24.dp)
-                .widthIn(min = 280.dp, max = 560.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                title?.let {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 16.dp)
-                    ) {
-                        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-                            ProvideTextStyle(MaterialTheme.typography.titleLarge) {
-                                it()
-                            }
-                        }
-                    }
+        DialogBody(scrollable = scrollable, content = content)
+        if (hasButtons) {
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (neutralButton != null) {
+                    neutralButton()
+                    Spacer(Modifier.weight(1f))
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
-                val hasButtons = confirmButton != null || dismissButton != null || neutralButton != null
-                val contentModifier = Modifier
-                    .weight(1f, fill = false)
-                    .fillMaxWidth()
-                    .then(
-                        if (scrollable) {
-                            val scrollState = rememberScrollState()
-                            Modifier
-                                .verticalScrollbar(
-                                    scrollState,
-                                    contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp, end = 4.dp)
-                                )
-                                .verticalScroll(scrollState)
-                        } else Modifier
-                    )
-                    .padding(
-                        start = 24.dp,
-                        end = 24.dp,
-                        top = if (title == null) 24.dp else 0.dp,
-                        bottom = if (hasButtons) 0.dp else 24.dp
-                    )
-                Box(modifier = contentModifier) {
-                    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurfaceVariant) {
-                        ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
-                            content()
-                        }
-                    }
+                if (dismissButton != null) {
+                    dismissButton()
                 }
-                if (hasButtons) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (neutralButton != null) {
-                            neutralButton()
-                            Spacer(Modifier.weight(1f))
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
-                        if (dismissButton != null) {
-                            dismissButton()
-                        }
-                        if (dismissButton != null && confirmButton != null) {
-                            Spacer(Modifier.width(8.dp))
-                        }
-                        if (confirmButton != null) {
-                            confirmButton()
-                        }
-                    }
+                if (dismissButton != null && confirmButton != null) {
+                    Spacer(Modifier.width(8.dp))
+                }
+                if (confirmButton != null) {
+                    confirmButton()
                 }
             }
         }
@@ -410,50 +355,96 @@ fun MagiskDialog(
     scrollable: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    MagiskDialog(
-        onDismissRequest = onDismissRequest,
-        title = if (!title.isNullOrEmpty()) {
-            { Text(text = title, style = MaterialTheme.typography.titleLarge) }
-        } else null,
-        modifier = modifier,
-        dismissOnClickOutside = dismissOnClickOutside,
-        dismissOnBackPress = dismissOnBackPress,
-        confirmButton = if (confirmText != null || onConfirm != null) {
-            {
-                TextButton(
+    val confirmLabel = confirmText ?: stringResource(android.R.string.ok)
+    val dismissLabel = dismissText ?: stringResource(android.R.string.cancel)
+    val buttons = buildList {
+        if (neutralText != null && onNeutral != null) {
+            add(
+                GlasmioAlertButtonSpec(
+                    label = neutralText,
+                    onClick = { onNeutral.invoke() },
+                    role = GlasmioAlertButtonRole.Default,
+                )
+            )
+        }
+        if (dismissText != null || onDismiss != null) {
+            add(
+                GlasmioAlertButtonSpec(
+                    label = dismissLabel,
+                    onClick = { onDismiss?.invoke() },
+                    role = GlasmioAlertButtonRole.Cancel,
+                )
+            )
+        }
+        if (confirmText != null || onConfirm != null) {
+            add(
+                GlasmioAlertButtonSpec(
+                    label = confirmLabel,
                     onClick = { onConfirm?.invoke() },
+                    role = GlasmioAlertButtonRole.Default,
                     enabled = confirmEnabled,
-                ) {
-                    Text(
-                        text = confirmText ?: stringResource(android.R.string.ok),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        } else null,
-        dismissButton = if (dismissText != null || onDismiss != null) {
+                )
+            )
+        }
+    }
+    GlasmioAlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = "",
+        titleContent = if (title.isNullOrEmpty()) null else {
             {
-                TextButton(onClick = { onDismiss?.invoke() }) {
-                    Text(
-                        text = dismissText ?: stringResource(android.R.string.cancel),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+                Text(
+                    text = title,
+                    style = IosTypography.headline,
+                    color = GlasmioTheme.colors.content,
+                )
             }
-        } else null,
-        neutralButton = if (neutralText != null && onNeutral != null) {
-            {
-                TextButton(onClick = onNeutral) {
-                    Text(
-                        text = neutralText,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
+        },
+        modifier = modifier,
+        buttonLayout = if (buttons.size >= 3) {
+            GlasmioAlertButtonLayout.Stacked
+        } else {
+            GlasmioAlertButtonLayout.SideBySide
+        },
+        properties = DialogProperties(
+            dismissOnBackPress = dismissOnBackPress,
+            dismissOnClickOutside = dismissOnClickOutside,
+            usePlatformDefaultWidth = false,
+        ),
+        buttons = buttons,
+    ) {
+        DialogBody(scrollable = scrollable, content = content)
+    }
+}
+
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.DialogBody(
+    scrollable: Boolean,
+    content: @Composable () -> Unit,
+) {
+    val scrollState = rememberScrollState()
+    Box(
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .fillMaxWidth()
+            .then(
+                if (scrollable) {
+                    Modifier
+                        .verticalScrollbar(
+                            scrollState,
+                            contentPadding = PaddingValues(top = 4.dp, bottom = 4.dp, end = 4.dp)
+                        )
+                        .verticalScroll(scrollState)
+                } else Modifier
+            )
+            .padding(horizontal = 8.dp)
+            .padding(bottom = 14.dp)
+    ) {
+        CompositionLocalProvider(LocalContentColor provides GlasmioTheme.colors.content) {
+            ProvideTextStyle(IosTypography.body) {
+                content()
             }
-        } else null,
-        scrollable = scrollable,
-        content = content
-    )
+        }
+    }
 }
 
 @Composable
@@ -477,7 +468,11 @@ fun ConfirmDialogContent(
             if (visuals.markdown) {
                 MarkdownText(content)
             } else {
-                Text(text = content)
+                Text(
+                    text = content,
+                    style = IosTypography.body,
+                    color = GlasmioTheme.colors.content,
+                )
             }
         }
     }
@@ -576,8 +571,8 @@ private class LinkClickMovementMethod : LinkMovementMethod() {
 fun MarkdownText(
     text: String,
     modifier: Modifier = Modifier,
-    color: Color = MaterialTheme.colorScheme.onSurface,
-    linkColor: Color = MaterialTheme.colorScheme.primary,
+    color: Color = GlasmioTheme.colors.content,
+    linkColor: Color = GlasmioTheme.colors.accent,
 ) {
     val contentColorArgb = color.toArgb()
     val linkColorArgb = linkColor.toArgb()
@@ -624,14 +619,16 @@ fun MarkdownTextAsync(
     when {
         error -> Text(
             text = stringResource(R.string.download_file_error),
-            modifier = modifier
+            modifier = modifier,
+            style = IosTypography.body,
+            color = GlasmioTheme.colors.content,
         )
         mdText != null -> MarkdownText(text = mdText!!, modifier = modifier)
         else -> Box(
             modifier = modifier.fillMaxWidth(),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator()
+            CircularProgressIndicator(color = GlasmioTheme.colors.accent)
         }
     }
 }

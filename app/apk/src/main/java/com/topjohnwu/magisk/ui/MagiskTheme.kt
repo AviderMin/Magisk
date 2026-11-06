@@ -8,32 +8,44 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivity
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Shapes
-import androidx.compose.material3.Typography
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.google.android.material.color.utilities.DynamicColor
 import com.google.android.material.color.utilities.Hct
 import com.google.android.material.color.utilities.MaterialDynamicColors
 import com.google.android.material.color.utilities.SchemeTonalSpot
 import com.topjohnwu.magisk.core.Config
 import com.topjohnwu.magisk.core.model.ColorMode
+import io.github.neoruaa.glasmio.core.GlasmioTheme
+import io.github.neoruaa.glasmio.core.defaultGlassColors
+import io.github.neoruaa.glasmio.core.glasmioColorScheme
+import io.github.neoruaa.glasmio.glass.GlasmioBackdropHost
+import io.github.neoruaa.glasmio.icons.GlasmioIconProvider
+import io.github.neoruaa.glasmio.icons.GlasmioIconResolver
+import io.github.neoruaa.glasmio.icons.MaterialGlasmioIconResolver
 
 @SuppressLint("RestrictedApi")
 fun dynamicColorScheme(
@@ -99,6 +111,19 @@ fun dynamicColorScheme(
 
 val MagiskAccentColor = Color(0xFF00AF9C)
 
+private object MagiskIconResolver : GlasmioIconResolver {
+    override fun resolve(systemName: String) = when (systemName) {
+        "power" -> Icons.Default.PowerSettingsNew
+        "wrench.and.screwdriver" -> Icons.Default.Build
+        "memorychip" -> Icons.Default.Memory
+        "shield.lefthalf.filled" -> Icons.Default.Security
+        "square.3.layers.3d" -> Icons.Default.Layers
+        "arrow.up.circle" -> Icons.Default.CloudUpload
+        "arrow.down.to.line" -> Icons.Default.Download
+        else -> MaterialGlasmioIconResolver.resolve(systemName)
+    }
+}
+
 object ThemeState {
     var colorMode by mutableIntStateOf(Config.colorMode)
 }
@@ -127,86 +152,11 @@ fun ComponentActivity.applySystemBarStyle() {
     }
 }
 
-val MagiskShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp),
-)
-
-val MagiskTypography = Typography(
-    headlineLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 32.sp,
-        lineHeight = 40.sp,
-        letterSpacing = (-0.25).sp,
-    ),
-    headlineMedium = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 36.sp,
-    ),
-    headlineSmall = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        lineHeight = 32.sp,
-    ),
-    titleLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
-    ),
-    titleMedium = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.15.sp,
-    ),
-    titleSmall = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp,
-    ),
-    bodySmall = TextStyle(
-        fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.4.sp,
-    ),
-    labelLarge = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.1.sp,
-    ),
-    labelMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp,
-    ),
-    labelSmall = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp,
-    ),
-)
-
+/**
+ * Hosts the whole Magisk UI inside Glasmio's Liquid Glass theme and backdrop recorder.
+ * The sampled layer only holds the themed background; every screen and control is drawn
+ * above it as the glass overlay layer.
+ */
 @Composable
 fun MagiskTheme(
     content: @Composable () -> Unit
@@ -225,6 +175,10 @@ fun MagiskTheme(
         else -> dynamicColorScheme(MagiskAccentColor, isDark = false)
     }
 
+    val accent = colorScheme.primary
+    val glasmioScheme = remember(accent, isDarkTheme) { glasmioColorScheme(isDarkTheme, accent) }
+    val glassColors = remember(accent, isDarkTheme) { defaultGlassColors(isDarkTheme, accent) }
+
     val activity = LocalActivity.current as? ComponentActivity
     if (activity != null) {
         LaunchedEffect(activity, isDarkTheme) {
@@ -232,10 +186,19 @@ fun MagiskTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        shapes = MagiskShapes,
-        typography = MagiskTypography,
-        content = content
-    )
+    GlasmioIconProvider(resolver = MagiskIconResolver) {
+        GlasmioTheme(
+            isDark = isDarkTheme,
+            colorScheme = glasmioScheme,
+            colors = glassColors,
+        ) {
+            GlasmioBackdropHost(
+                modifier = Modifier.fillMaxSize(),
+                sampledContent = {
+                    Box(Modifier.fillMaxSize().background(glassColors.groupedBackground))
+                },
+                overlayContent = { content() },
+            )
+        }
+    }
 }

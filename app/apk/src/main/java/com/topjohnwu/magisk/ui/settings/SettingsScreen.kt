@@ -2,35 +2,32 @@ package com.topjohnwu.magisk.ui.settings
 
 import android.webkit.URLUtil
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -38,15 +35,21 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import com.topjohnwu.magisk.core.utils.LocaleSetting
 import com.topjohnwu.magisk.core.utils.MediaStoreUtils
 import com.topjohnwu.magisk.ui.component.AdaptiveColumns
-import com.topjohnwu.magisk.ui.component.MagiskDialog
-import com.topjohnwu.magisk.ui.component.SettingsArrow
-import com.topjohnwu.magisk.ui.component.SettingsDropdown
-import com.topjohnwu.magisk.ui.component.SettingsSwitch
-import com.topjohnwu.magisk.ui.component.SmallTitle
-import com.topjohnwu.magisk.ui.component.onlyHorizontal
+import com.topjohnwu.magisk.ui.component.MagiskSwitchPreference
 import com.topjohnwu.magisk.ui.component.rememberBiometricAuth
 import com.topjohnwu.magisk.ui.component.rememberNotificationPermissionLauncher
 import com.topjohnwu.magisk.ui.component.verticalScrollbar
+import io.github.neoruaa.glasmio.core.GlasmioTheme
+import io.github.neoruaa.glasmio.preference.GlasmioListPreference
+import io.github.neoruaa.glasmio.preference.GlasmioPreferenceGroupTitle
+import io.github.neoruaa.glasmio.scaffold.GlasmioPinnedPage
+import io.github.neoruaa.glasmio.ui.GlasmioAlertButtonRole
+import io.github.neoruaa.glasmio.ui.GlasmioAlertButtonSpec
+import io.github.neoruaa.glasmio.ui.GlasmioAlertDialog
+import io.github.neoruaa.glasmio.ui.GlasmioAlertFieldGroup
+import io.github.neoruaa.glasmio.ui.GlasmioAlertTextField
+import io.github.neoruaa.glasmio.ui.GlasmioGroupedList
+import io.github.neoruaa.glasmio.ui.GlasmioListRow
 import com.topjohnwu.magisk.core.R as CoreR
 
 @Composable
@@ -101,7 +104,6 @@ fun SettingsScreen(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsContent(
     uiState: SettingsUiState,
@@ -128,123 +130,96 @@ fun SettingsContent(
     onDismissDialog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val scrollState = rememberScrollState()
+    val collapseDistancePx = with(LocalDensity.current) { 56.dp.toPx() }.coerceAtLeast(1f)
+    val topBarBlurProgress = (scrollState.value / collapseDistancePx).coerceIn(0f, 1f)
 
-    Scaffold(
+    GlasmioPinnedPage(
+        title = stringResource(CoreR.string.settings),
         modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(CoreR.string.settings)) },
-                scrollBehavior = scrollBehavior
-            )
-        }
+        topBarBlurProgress = topBarBlurProgress,
     ) { padding ->
         // Without root, the Magisk and Superuser sections are hidden, so move the
         // App section to the second column to avoid leaving it empty.
-        // Each section emits a title and a card, so wrap them in a Column to keep them together
+        // Each section emits a title and a grouped list, so keep them together.
         AdaptiveColumns(
             modifier = Modifier
                 .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .consumeWindowInsets(padding)
-                .padding(padding.onlyHorizontal())
+                .padding(padding)
                 .verticalScrollbar(
                     scrollState,
-                    contentPadding = PaddingValues(
-                        top = padding.calculateTopPadding() + 12.dp,
-                        bottom = padding.calculateBottomPadding() + 12.dp,
-                    ),
+                    contentPadding = PaddingValues(vertical = 12.dp),
+                    thumbColor = GlasmioTheme.colors.secondaryContent,
                 )
-                .verticalScroll(scrollState)
-                .padding(
-                    start = 16.dp,
-                    top = padding.calculateTopPadding() + 12.dp,
-                    end = 16.dp,
-                    bottom = padding.calculateBottomPadding() + 12.dp,
-                ),
+                .verticalScroll(scrollState),
             spacing = 16.dp,
             first = {
-                Column {
-                    CustomizationSection(
-                        uiState = uiState,
-                        onOpenSystemLocale = onOpenSystemLocale,
-                        onLanguageSelected = onLanguageSelected,
-                        onColorModeSelected = onColorModeSelected,
-                    )
-                }
+                CustomizationSection(
+                    uiState = uiState,
+                    onOpenSystemLocale = onOpenSystemLocale,
+                    onLanguageSelected = onLanguageSelected,
+                    onColorModeSelected = onColorModeSelected,
+                )
                 if (uiState.hasRootSections) {
-                    Column {
-                        AppSettingsSection(
-                            uiState = uiState,
-                            onUpdateChannelSelected = onUpdateChannelSelected,
-                            onOpenCustomUrlDialog = onOpenCustomUrlDialog,
-                            onToggleDoh = onToggleDoh,
-                            onToggleCheckUpdate = onToggleCheckUpdate,
-                            onOpenDownloadPathDialog = onOpenDownloadPathDialog,
-                            onToggleRandomPackageName = onToggleRandomPackageName,
-                        )
-                    }
+                    AppSettingsSection(
+                        uiState = uiState,
+                        onUpdateChannelSelected = onUpdateChannelSelected,
+                        onOpenCustomUrlDialog = onOpenCustomUrlDialog,
+                        onToggleDoh = onToggleDoh,
+                        onToggleCheckUpdate = onToggleCheckUpdate,
+                        onOpenDownloadPathDialog = onOpenDownloadPathDialog,
+                        onToggleRandomPackageName = onToggleRandomPackageName,
+                    )
                 }
             },
             second = {
                 if (!uiState.hasRootSections) {
-                    Column {
-                        AppSettingsSection(
-                            uiState = uiState,
-                            onUpdateChannelSelected = onUpdateChannelSelected,
-                            onOpenCustomUrlDialog = onOpenCustomUrlDialog,
-                            onToggleDoh = onToggleDoh,
-                            onToggleCheckUpdate = onToggleCheckUpdate,
-                            onOpenDownloadPathDialog = onOpenDownloadPathDialog,
-                            onToggleRandomPackageName = onToggleRandomPackageName,
-                        )
-                    }
+                    AppSettingsSection(
+                        uiState = uiState,
+                        onUpdateChannelSelected = onUpdateChannelSelected,
+                        onOpenCustomUrlDialog = onOpenCustomUrlDialog,
+                        onToggleDoh = onToggleDoh,
+                        onToggleCheckUpdate = onToggleCheckUpdate,
+                        onOpenDownloadPathDialog = onOpenDownloadPathDialog,
+                        onToggleRandomPackageName = onToggleRandomPackageName,
+                    )
                 }
                 if (uiState.isMagiskInstalled) {
-                    Column {
-                        MagiskSection(
-                            uiState = uiState,
-                            onCreateHosts = onCreateHosts,
-                            onToggleZygisk = onToggleZygisk,
-                            onToggleDenyList = onToggleDenyList,
-                            onNavigateToDenyList = onNavigateToDenyList,
-                        )
-                    }
+                    MagiskSection(
+                        uiState = uiState,
+                        onCreateHosts = onCreateHosts,
+                        onToggleZygisk = onToggleZygisk,
+                        onToggleDenyList = onToggleDenyList,
+                        onNavigateToDenyList = onNavigateToDenyList,
+                    )
                 }
                 if (uiState.isSuperUserAvailable) {
-                    Column {
-                        SuperuserSection(
-                            uiState = uiState,
-                            onToggleSuAuth = onToggleSuAuth,
-                            onMultiuserModeSelected = onMultiuserModeSelected,
-                            onNamespaceModeSelected = onNamespaceModeSelected,
-                            onNotificationModeSelected = onNotificationModeSelected,
-                            onToggleSuRestrict = onToggleSuRestrict,
-                        )
-                    }
+                    SuperuserSection(
+                        uiState = uiState,
+                        onToggleSuAuth = onToggleSuAuth,
+                        onMultiuserModeSelected = onMultiuserModeSelected,
+                        onNamespaceModeSelected = onNamespaceModeSelected,
+                        onNotificationModeSelected = onNotificationModeSelected,
+                        onToggleSuRestrict = onToggleSuRestrict,
+                    )
                 }
             },
         )
     }
 
-    when (val dialog = uiState.activeDialog) {
-        is SettingsDialog.CustomChannelUrl -> {
-            UpdateChannelUrlDialog(
-                initialUrl = dialog.initialUrl,
-                onConfirm = onSaveCustomUrl,
-                onDismiss = onDismissDialog,
-            )
-        }
-        is SettingsDialog.DownloadPath -> {
-            DownloadPathDialog(
-                initialPath = dialog.initialPath,
-                onConfirm = onSaveDownloadPath,
-                onDismiss = onDismissDialog,
-            )
-        }
-        null -> Unit
-    }
+    val activeDialog = uiState.activeDialog
+    UpdateChannelUrlDialog(
+        initialUrl = (activeDialog as? SettingsDialog.CustomChannelUrl)?.initialUrl.orEmpty(),
+        visible = activeDialog is SettingsDialog.CustomChannelUrl,
+        onConfirm = onSaveCustomUrl,
+        onDismiss = onDismissDialog,
+    )
+    DownloadPathDialog(
+        initialPath = (activeDialog as? SettingsDialog.DownloadPath)?.initialPath.orEmpty(),
+        visible = activeDialog is SettingsDialog.DownloadPath,
+        onConfirm = onSaveDownloadPath,
+        onDismiss = onDismissDialog,
+    )
 }
 
 // --- Customization ---
@@ -257,42 +232,41 @@ private fun CustomizationSection(
     onColorModeSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SmallTitle(text = stringResource(CoreR.string.settings_customization))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        if (uiState.useLocaleManager) {
-            val appLocale = LocaleSetting.instance.appLocale
-            SettingsArrow(
-                title = stringResource(CoreR.string.language),
-                summary = appLocale?.getDisplayName(appLocale)
-                    ?: stringResource(CoreR.string.system_default),
-                onClick = onOpenSystemLocale
-            )
-        } else {
-            SettingsDropdown(
-                title = stringResource(CoreR.string.language),
-                items = uiState.availableLanguages,
-                selectedIndex = uiState.selectedLanguageIndex,
-                onSelectedIndexChange = onLanguageSelected
+    Column(modifier = modifier.fillMaxWidth()) {
+        GlasmioPreferenceGroupTitle(stringResource(CoreR.string.settings_customization))
+        GlasmioGroupedList {
+            if (uiState.useLocaleManager) {
+                val appLocale = LocaleSetting.instance.appLocale
+                GlasmioListRow(
+                    title = stringResource(CoreR.string.language),
+                    subtitle = appLocale?.getDisplayName(appLocale)
+                        ?: stringResource(CoreR.string.system_default),
+                    onClick = onOpenSystemLocale,
+                    showTopSeparator = false,
+                )
+            } else {
+                val languages = uiState.availableLanguages
+                GlasmioListPreference(
+                    title = { Text(stringResource(CoreR.string.language)) },
+                    selectedValue = uiState.selectedLanguageIndex,
+                    values = languages.indices.toList(),
+                    valueText = { index -> languages.getOrElse(index) { "" } },
+                    onValueSelected = onLanguageSelected,
+                    showTopSeparator = false,
+                )
+            }
+
+            // Color Mode
+            val colorModes = stringArrayResource(CoreR.array.color_mode).asList()
+            val displayedColorModes = if (uiState.isDynamicColorSupported) colorModes else colorModes.drop(3)
+            GlasmioListPreference(
+                title = { Text(stringResource(CoreR.string.settings_color_mode)) },
+                selectedValue = uiState.selectedColorModeIndex,
+                values = displayedColorModes.indices.toList(),
+                valueText = { index -> displayedColorModes.getOrElse(index) { "" } },
+                onValueSelected = onColorModeSelected,
             )
         }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // Color Mode
-        val colorModes = stringArrayResource(CoreR.array.color_mode).asList()
-        SettingsDropdown(
-            title = stringResource(CoreR.string.settings_color_mode),
-            items = if (uiState.isDynamicColorSupported) colorModes else colorModes.drop(3),
-            selectedIndex = uiState.selectedColorModeIndex,
-            onSelectedIndexChange = onColorModeSelected
-        )
     }
 }
 
@@ -309,83 +283,60 @@ private fun AppSettingsSection(
     onToggleRandomPackageName: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SmallTitle(text = stringResource(CoreR.string.home_app_title))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        // Update Channel
-        SettingsDropdown(
-            title = stringResource(CoreR.string.settings_update_channel_title),
-            items = stringArrayResource(CoreR.array.update_channel).asList(),
-            selectedIndex = uiState.selectedUpdateChannelIndex,
-            onSelectedIndexChange = onUpdateChannelSelected
-        )
-
-        // Update Channel URL (for custom channel)
-        if (uiState.isCustomChannel) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        GlasmioPreferenceGroupTitle(stringResource(CoreR.string.home_app_title))
+        GlasmioGroupedList {
+            // Update Channel
+            val updateChannels = stringArrayResource(CoreR.array.update_channel).asList()
+            GlasmioListPreference(
+                title = { Text(stringResource(CoreR.string.settings_update_channel_title)) },
+                selectedValue = uiState.selectedUpdateChannelIndex,
+                values = updateChannels.indices.toList(),
+                valueText = { index -> updateChannels.getOrElse(index) { "" } },
+                onValueSelected = onUpdateChannelSelected,
+                showTopSeparator = false,
             )
-            SettingsArrow(
-                title = stringResource(CoreR.string.settings_update_custom),
-                summary = uiState.customChannelUrl.ifBlank { null },
-                onClick = onOpenCustomUrlDialog
+
+            // Update Channel URL (for custom channel)
+            if (uiState.isCustomChannel) {
+                GlasmioListRow(
+                    title = stringResource(CoreR.string.settings_update_custom),
+                    subtitle = uiState.customChannelUrl.ifBlank { null },
+                    onClick = onOpenCustomUrlDialog,
+                )
+            }
+
+            // DoH Toggle
+            MagiskSwitchPreference(
+                title = { Text(stringResource(CoreR.string.settings_doh_title)) },
+                description = stringResource(CoreR.string.settings_doh_description),
+                checked = uiState.dohEnabled,
+                onCheckedChange = onToggleDoh,
+            )
+
+            // Update Checker
+            MagiskSwitchPreference(
+                title = { Text(stringResource(CoreR.string.settings_check_update_title)) },
+                description = stringResource(CoreR.string.settings_check_update_summary),
+                checked = uiState.checkUpdateEnabled,
+                onCheckedChange = onToggleCheckUpdate,
+            )
+
+            // Download Path
+            GlasmioListRow(
+                title = stringResource(CoreR.string.settings_download_path_title),
+                subtitle = uiState.downloadPathDisplay,
+                onClick = onOpenDownloadPathDialog,
+            )
+
+            // Random Package Name
+            MagiskSwitchPreference(
+                title = { Text(stringResource(CoreR.string.settings_random_name_title)) },
+                description = stringResource(CoreR.string.settings_random_name_description),
+                checked = uiState.randomPackageNameEnabled,
+                onCheckedChange = onToggleRandomPackageName,
             )
         }
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // DoH Toggle
-        SettingsSwitch(
-            title = stringResource(CoreR.string.settings_doh_title),
-            summary = stringResource(CoreR.string.settings_doh_description),
-            checked = uiState.dohEnabled,
-            onCheckedChange = onToggleDoh
-        )
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // Update Checker
-        SettingsSwitch(
-            title = stringResource(CoreR.string.settings_check_update_title),
-            summary = stringResource(CoreR.string.settings_check_update_summary),
-            checked = uiState.checkUpdateEnabled,
-            onCheckedChange = onToggleCheckUpdate
-        )
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // Download Path
-        SettingsArrow(
-            title = stringResource(CoreR.string.settings_download_path_title),
-            summary = uiState.downloadPathDisplay,
-            onClick = onOpenDownloadPathDialog
-        )
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // Random Package Name
-        SettingsSwitch(
-            title = stringResource(CoreR.string.settings_random_name_title),
-            summary = stringResource(CoreR.string.settings_random_name_description),
-            checked = uiState.randomPackageNameEnabled,
-            onCheckedChange = onToggleRandomPackageName
-        )
     }
 }
 
@@ -400,60 +351,44 @@ private fun MagiskSection(
     onNavigateToDenyList: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SmallTitle(text = stringResource(CoreR.string.magisk))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        // Systemless Hosts
-        SettingsArrow(
-            title = stringResource(CoreR.string.settings_hosts_title),
-            summary = stringResource(CoreR.string.settings_hosts_summary),
-            onClick = onCreateHosts
-        )
-
-        if (uiState.isZygiskSupported) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        GlasmioPreferenceGroupTitle(stringResource(CoreR.string.magisk))
+        GlasmioGroupedList {
+            // Systemless Hosts
+            GlasmioListRow(
+                title = stringResource(CoreR.string.settings_hosts_title),
+                subtitle = stringResource(CoreR.string.settings_hosts_summary),
+                onClick = onCreateHosts,
+                showTopSeparator = false,
             )
 
-            // Zygisk
-            SettingsSwitch(
-                title = stringResource(CoreR.string.zygisk),
-                summary = stringResource(
-                    if (uiState.isZygiskPendingReboot) CoreR.string.reboot_apply_change
-                    else CoreR.string.settings_zygisk_summary
-                ),
-                checked = uiState.zygiskEnabled,
-                onCheckedChange = onToggleZygisk
-            )
+            if (uiState.isZygiskSupported) {
+                // Zygisk
+                MagiskSwitchPreference(
+                    title = { Text(stringResource(CoreR.string.zygisk)) },
+                    description = stringResource(
+                        if (uiState.isZygiskPendingReboot) CoreR.string.reboot_apply_change
+                        else CoreR.string.settings_zygisk_summary
+                    ),
+                    checked = uiState.zygiskEnabled,
+                    onCheckedChange = onToggleZygisk,
+                )
 
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
+                // DenyList
+                MagiskSwitchPreference(
+                    title = { Text(stringResource(CoreR.string.settings_denylist_title)) },
+                    description = stringResource(CoreR.string.settings_denylist_summary),
+                    checked = uiState.denyListEnabled,
+                    onCheckedChange = onToggleDenyList,
+                )
 
-            // DenyList
-            SettingsSwitch(
-                title = stringResource(CoreR.string.settings_denylist_title),
-                summary = stringResource(CoreR.string.settings_denylist_summary),
-                checked = uiState.denyListEnabled,
-                onCheckedChange = onToggleDenyList
-            )
-
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
-
-            // DenyList Config
-            SettingsArrow(
-                title = stringResource(CoreR.string.settings_denylist_config_title),
-                summary = stringResource(CoreR.string.settings_denylist_config_summary),
-                onClick = onNavigateToDenyList
-            )
+                // DenyList Config
+                GlasmioListRow(
+                    title = stringResource(CoreR.string.settings_denylist_config_title),
+                    subtitle = stringResource(CoreR.string.settings_denylist_config_summary),
+                    onClick = onNavigateToDenyList,
+                )
+            }
         }
     }
 }
@@ -470,82 +405,68 @@ private fun SuperuserSection(
     onToggleSuRestrict: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    SmallTitle(text = stringResource(CoreR.string.superuser))
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-    ) {
-        // Authentication
-        SettingsSwitch(
-            title = stringResource(CoreR.string.settings_su_auth_title),
-            summary = stringResource(
-                if (uiState.isDeviceSecure) CoreR.string.settings_su_auth_summary
-                else CoreR.string.settings_su_auth_insecure
-            ),
-            checked = uiState.suAuthEnabled,
-            enabled = uiState.isDeviceSecure,
-            onCheckedChange = onToggleSuAuth
-        )
-
-        if (uiState.isMultiuserSupported) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    Column(modifier = modifier.fillMaxWidth()) {
+        GlasmioPreferenceGroupTitle(stringResource(CoreR.string.superuser))
+        GlasmioGroupedList {
+            // Authentication
+            MagiskSwitchPreference(
+                title = { Text(stringResource(CoreR.string.settings_su_auth_title)) },
+                description = stringResource(
+                    if (uiState.isDeviceSecure) CoreR.string.settings_su_auth_summary
+                    else CoreR.string.settings_su_auth_insecure
+                ),
+                checked = uiState.suAuthEnabled,
+                isEnabled = uiState.isDeviceSecure,
+                onCheckedChange = onToggleSuAuth,
+                showTopSeparator = false,
             )
 
-            // Multiuser Mode
-            val multiuserSummaries = stringArrayResource(CoreR.array.multiuser_summary)
-            SettingsDropdown(
-                title = stringResource(CoreR.string.multiuser_mode),
-                summary = multiuserSummaries.getOrElse(uiState.selectedMultiuserModeIndex) { "" },
-                items = stringArrayResource(CoreR.array.multiuser_mode).asList(),
-                selectedIndex = uiState.selectedMultiuserModeIndex,
-                enabled = uiState.isMultiuserEditable,
-                onSelectedIndexChange = onMultiuserModeSelected
+            if (uiState.isMultiuserSupported) {
+                // Multiuser Mode
+                val multiuserSummaries = stringArrayResource(CoreR.array.multiuser_summary)
+                val multiuserModes = stringArrayResource(CoreR.array.multiuser_mode).asList()
+                GlasmioListPreference(
+                    title = { Text(stringResource(CoreR.string.multiuser_mode)) },
+                    description = multiuserSummaries.getOrElse(uiState.selectedMultiuserModeIndex) { "" },
+                    selectedValue = uiState.selectedMultiuserModeIndex,
+                    values = multiuserModes.indices.toList(),
+                    valueText = { index -> multiuserModes.getOrElse(index) { "" } },
+                    onValueSelected = onMultiuserModeSelected,
+                    isEnabled = uiState.isMultiuserEditable,
+                )
+            }
+
+            // Mount Namespace Mode
+            val namespaceSummaries = stringArrayResource(CoreR.array.namespace_summary)
+            val namespaceModes = stringArrayResource(CoreR.array.namespace).asList()
+            GlasmioListPreference(
+                title = { Text(stringResource(CoreR.string.mount_namespace_mode)) },
+                description = namespaceSummaries.getOrElse(uiState.selectedNamespaceModeIndex) { "" },
+                selectedValue = uiState.selectedNamespaceModeIndex,
+                values = namespaceModes.indices.toList(),
+                valueText = { index -> namespaceModes.getOrElse(index) { "" } },
+                onValueSelected = onNamespaceModeSelected,
             )
-        }
 
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // Mount Namespace Mode
-        val namespaceSummaries = stringArrayResource(CoreR.array.namespace_summary)
-        SettingsDropdown(
-            title = stringResource(CoreR.string.mount_namespace_mode),
-            summary = namespaceSummaries.getOrElse(uiState.selectedNamespaceModeIndex) { "" },
-            items = stringArrayResource(CoreR.array.namespace).asList(),
-            selectedIndex = uiState.selectedNamespaceModeIndex,
-            onSelectedIndexChange = onNamespaceModeSelected
-        )
-
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-        )
-
-        // SU Notification
-        SettingsDropdown(
-            title = stringResource(CoreR.string.superuser_notification),
-            items = stringArrayResource(CoreR.array.su_notification).asList(),
-            selectedIndex = uiState.selectedNotificationModeIndex,
-            onSelectedIndexChange = onNotificationModeSelected
-        )
-
-        // Restrict (version >= 30.1)
-        if (uiState.isSuRestrictSupported) {
-            HorizontalDivider(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            // SU Notification
+            val notificationModes = stringArrayResource(CoreR.array.su_notification).asList()
+            GlasmioListPreference(
+                title = { Text(stringResource(CoreR.string.superuser_notification)) },
+                selectedValue = uiState.selectedNotificationModeIndex,
+                values = notificationModes.indices.toList(),
+                valueText = { index -> notificationModes.getOrElse(index) { "" } },
+                onValueSelected = onNotificationModeSelected,
             )
-            SettingsSwitch(
-                title = stringResource(CoreR.string.settings_su_restrict_title),
-                summary = stringResource(CoreR.string.settings_su_restrict_summary),
-                checked = uiState.suRestrictEnabled,
-                onCheckedChange = onToggleSuRestrict
-            )
+
+            // Restrict (version >= 30.1)
+            if (uiState.isSuRestrictSupported) {
+                MagiskSwitchPreference(
+                    title = { Text(stringResource(CoreR.string.settings_su_restrict_title)) },
+                    description = stringResource(CoreR.string.settings_su_restrict_summary),
+                    checked = uiState.suRestrictEnabled,
+                    onCheckedChange = onToggleSuRestrict,
+                )
+            }
         }
     }
 }
@@ -555,41 +476,59 @@ private fun SuperuserSection(
 @Composable
 private fun UpdateChannelUrlDialog(
     initialUrl: String,
+    visible: Boolean,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var url by rememberSaveable(initialUrl) { mutableStateOf(initialUrl) }
+    var value by rememberSaveable(visible, initialUrl, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(initialUrl, TextRange(initialUrl.length)))
+    }
+    val url = value.text
     val isValidUrl = remember(url) {
         url.isBlank() || (
             (url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)) &&
             URLUtil.isValidUrl(url)
         )
     }
+    val focusRequester = remember { FocusRequester() }
 
-    MagiskDialog(
-        modifier = modifier,
+    GlasmioAlertDialog(
+        visible = visible,
         onDismissRequest = onDismiss,
         title = stringResource(CoreR.string.settings_update_custom_msg),
-        confirmText = stringResource(android.R.string.ok),
-        confirmEnabled = isValidUrl,
-        onConfirm = {
-            if (isValidUrl) {
-                onConfirm(url)
-            }
-        },
-        dismissText = stringResource(android.R.string.cancel),
-        onDismiss = onDismiss,
-        scrollable = true,
+        modifier = modifier,
+        buttons = listOf(
+            GlasmioAlertButtonSpec(
+                label = stringResource(android.R.string.cancel),
+                onClick = onDismiss,
+                role = GlasmioAlertButtonRole.Cancel,
+            ),
+            GlasmioAlertButtonSpec(
+                label = stringResource(android.R.string.ok),
+                onClick = {
+                    if (isValidUrl) {
+                        onConfirm(url)
+                    }
+                },
+                enabled = isValidUrl,
+            ),
+        ),
     ) {
-        Column(modifier = Modifier.padding(top = 8.dp)) {
-            OutlinedTextField(
-                value = url,
-                onValueChange = { url = it },
-                isError = !isValidUrl,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
+        GlasmioAlertFieldGroup {
+            GlasmioAlertTextField(
+                value = value,
+                onValueChange = { value = it },
+                modifier = Modifier.focusRequester(focusRequester),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { if (visible && isValidUrl) onConfirm(url) },
+                ),
             )
+        }
+        LaunchedEffect(visible) {
+            if (visible) focusRequester.requestFocus()
         }
     }
 }
@@ -597,35 +536,51 @@ private fun UpdateChannelUrlDialog(
 @Composable
 private fun DownloadPathDialog(
     initialPath: String,
+    visible: Boolean,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var path by rememberSaveable(initialPath) { mutableStateOf(initialPath) }
+    var value by rememberSaveable(visible, initialPath, stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue(initialPath, TextRange(initialPath.length)))
+    }
+    val focusRequester = remember { FocusRequester() }
 
-    MagiskDialog(
-        modifier = modifier,
+    GlasmioAlertDialog(
+        visible = visible,
         onDismissRequest = onDismiss,
         title = stringResource(CoreR.string.settings_download_path_title),
-        confirmText = stringResource(android.R.string.ok),
-        onConfirm = {
-            onConfirm(path.trim())
-        },
-        dismissText = stringResource(android.R.string.cancel),
-        onDismiss = onDismiss,
-        scrollable = true,
+        message = stringResource(
+            CoreR.string.settings_download_path_message,
+            MediaStoreUtils.fullPath(value.text),
+        ),
+        modifier = modifier,
+        buttons = listOf(
+            GlasmioAlertButtonSpec(
+                label = stringResource(android.R.string.cancel),
+                onClick = onDismiss,
+                role = GlasmioAlertButtonRole.Cancel,
+            ),
+            GlasmioAlertButtonSpec(
+                label = stringResource(android.R.string.ok),
+                onClick = { onConfirm(value.text.trim()) },
+            ),
+        ),
     ) {
-        Column {
-            Text(
-                text = stringResource(CoreR.string.settings_download_path_message, MediaStoreUtils.fullPath(path)),
-                modifier = Modifier.padding(bottom = 8.dp)
+        GlasmioAlertFieldGroup {
+            GlasmioAlertTextField(
+                value = value,
+                onValueChange = { value = it },
+                modifier = Modifier.focusRequester(focusRequester),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { if (visible) onConfirm(value.text.trim()) },
+                ),
             )
-            OutlinedTextField(
-                value = path,
-                onValueChange = { path = it },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
+        }
+        LaunchedEffect(visible) {
+            if (visible) focusRequester.requestFocus()
         }
     }
 }
